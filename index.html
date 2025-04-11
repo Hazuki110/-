@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>シンプルテトリス風ゲーム</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background: #f0f0f0;
+      text-align: center;
+      padding: 30px;
+    }
+
+    canvas {
+      border: 1px solid #000;
+      background: #222;
+    }
+  </style>
+</head>
+<body>
+  <h1>テトリス風ゲーム</h1>
+  <canvas id="gameCanvas" width="300" height="600"></canvas>
+
+  <script>
+    // ゲームの設定
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const grid = 30;
+    const tetrominoColors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A0', '#FF8C33'];
+
+    // 初期設定
+    let board = Array.from({ length: 20 }, () => Array(10).fill(0));  // 20x10 のボード
+    let currentPiece = generateTetromino();  // 現在のテトリミノ
+    let gameOver = false;
+
+    // テトリミノの形状
+    const tetrominos = [
+      [[1, 1, 1, 1]],  // I型
+      [[1, 1, 1], [0, 1, 0]],  // T型
+      [[1, 1], [1, 1]],  // O型
+      [[1, 1, 0], [0, 1, 1]],  // S型
+      [[0, 1, 1], [1, 1, 0]],  // Z型
+      [[1, 0, 0], [1, 1, 1]],  // L型
+      [[0, 0, 1], [1, 1, 1]],  // J型
+    ];
+
+    // テトリミノを生成する関数
+    function generateTetromino() {
+      const rand = Math.floor(Math.random() * tetrominos.length);
+      return {
+        shape: tetrominos[rand],
+        x: Math.floor(board[0].length / 2) - Math.floor(tetrominos[rand][0].length / 2),
+        y: 0,
+        color: tetrominoColors[rand]
+      };
+    }
+
+    // 描画
+    function drawBoard() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // ボードの描画
+      for (let y = 0; y < board.length; y++) {
+        for (let x = 0; x < board[y].length; x++) {
+          if (board[y][x] !== 0) {
+            ctx.fillStyle = board[y][x];
+            ctx.fillRect(x * grid, y * grid, grid, grid);
+          }
+        }
+      }
+
+      // 現在のテトリミノを描画
+      for (let y = 0; y < currentPiece.shape.length; y++) {
+        for (let x = 0; x < currentPiece.shape[y].length; x++) {
+          if (currentPiece.shape[y][x] !== 0) {
+            ctx.fillStyle = currentPiece.color;
+            ctx.fillRect((currentPiece.x + x) * grid, (currentPiece.y + y) * grid, grid, grid);
+          }
+        }
+      }
+    }
+
+    // テトリミノを動かす
+    function movePiece() {
+      if (!gameOver) {
+        currentPiece.y++;
+        if (collision()) {
+          currentPiece.y--;
+          placePiece();
+          currentPiece = generateTetromino();
+        }
+      }
+    }
+
+    // 衝突判定
+    function collision() {
+      for (let y = 0; y < currentPiece.shape.length; y++) {
+        for (let x = 0; x < currentPiece.shape[y].length; x++) {
+          if (currentPiece.shape[y][x] !== 0) {
+            let newX = currentPiece.x + x;
+            let newY = currentPiece.y + y;
+            if (newX < 0 || newX >= board[0].length || newY >= board.length || board[newY][newX] !== 0) {
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    }
+
+    // テトリミノをボードに配置
+    function placePiece() {
+      for (let y = 0; y < currentPiece.shape.length; y++) {
+        for (let x = 0; x < currentPiece.shape[y].length; x++) {
+          if (currentPiece.shape[y][x] !== 0) {
+            board[currentPiece.y + y][currentPiece.x + x] = currentPiece.color;
+          }
+        }
+      }
+
+      // ラインが埋まったかチェック
+      for (let y = board.length - 1; y >= 0; y--) {
+        if (board[y].every(cell => cell !== 0)) {
+          board.splice(y, 1);
+          board.unshift(Array(board[0].length).fill(0));
+        }
+      }
+
+      // ゲームオーバー判定
+      if (board[0].some(cell => cell !== 0)) {
+        gameOver = true;
+        alert('ゲームオーバー！');
+      }
+    }
+
+    // ゲームの更新
+    function update() {
+      if (!gameOver) {
+        movePiece();
+        drawBoard();
+      }
+    }
+
+    // キー操作
+    document.addEventListener('keydown', function(e) {
+      if (gameOver) return;
+
+      if (e.key === 'ArrowLeft') {
+        currentPiece.x--;
+        if (collision()) currentPiece.x++;
+      }
+      if (e.key === 'ArrowRight') {
+        currentPiece.x++;
+        if (collision()) currentPiece.x--;
+      }
+      if (e.key === 'ArrowDown') {
+        movePiece();
+      }
+      if (e.key === 'ArrowUp') {
+        rotatePiece();
+      }
+      drawBoard();
+    });
+
+    // テトリミノを回転させる
+    function rotatePiece() {
+      const tempShape = currentPiece.shape;
+      currentPiece.shape = currentPiece.shape[0].map((_, index) => currentPiece.shape.map(row => row[index])).reverse();
+      if (collision()) {
+        currentPiece.shape = tempShape;
+      }
+    }
+
+    // ゲームループ
+    setInterval(update, 500);  // 500msごとにゲーム更新
+
+  </script>
+</body>
+</html>
